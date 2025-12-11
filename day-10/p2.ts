@@ -1,0 +1,134 @@
+// @ts-nocheck
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
+
+const input = parseInputFromFile(path.join(__dirname, './input.txt'))
+
+function parseInputFromFile(path: string): string {
+  return readFileSync(path, 'utf-8')
+}
+
+function parseInput(input: string) {
+  const rows = input.split('\n')
+  const parsedInput: {
+    indicator: string,
+    buttons: number[],
+    joltages: number[]
+  }[] = []
+  for (const row of rows) {
+    const indicator = row.match(/\[(.+)\]/)[1]
+    const buttonMatches = row.match(/\((\d+(?:,\d+)*)\)/g)
+    const buttons = buttonMatches.map(match => match.slice(1, -1).split(',').map(Number))
+    parsedInput.push({
+      indicator,
+      buttons,
+      joltages: row.match(/\{(.+)\}/)[1].split(',').map(Number)
+    })
+  }
+
+  return parsedInput
+}
+
+// Brute force: try all combinations of button presses
+function solveBruteForce(buttons: number[][], target: string, joltages: number[]): number | null {
+  const numLights = target.length
+  const numButtons = buttons.length
+  const maxJoltage = Math.max(...joltages) + 1
+  const minJoltage = Math.min(...joltages)
+
+  // Try all possible combinations: maxJoltage^numButtons possibilities
+  // Each button can be pressed 0, 1, 2, ..., maxJoltage-1 times
+  const totalCombinations = Math.pow(maxJoltage - minJoltage + 1, numButtons)
+  const combinations = []
+  console.log('totalCombinations', totalCombinations)
+
+  // Create possible combinations from minJoltage to maxJoltage
+  for (let i = 0; i < totalCombinations; i++) {
+    // Convert number to base maxJoltage manually
+    let num = i + minJoltage
+    const digits = []
+
+    for (let j = 0; j < numButtons; j++) {
+      
+      digits.push(num % maxJoltage)
+      num = Math.floor(num / maxJoltage)
+    }
+
+    combinations.push(digits)
+  }
+  console.log('combinations length', combinations.length)
+
+  let minPresses = Infinity
+
+  for (let combination of combinations) {
+    // Simulate pressing the buttons in this combination
+    // let lightState = ''.padStart(numLights, '0')
+    let pressCount = 0
+    let joltageState = Array.from({ length: numLights }, () => 0)
+    // console.log('joltageState', joltageState)
+
+    for (let buttonIndex = 0; buttonIndex < numButtons; buttonIndex++) {
+      // Check if this button is pressed in current combination
+      const numberOfPresses = Number(combination[buttonIndex])
+
+      if (numberOfPresses > 0) {
+        // Loop through the amount of times the button is pressed
+        for (let i = 0; i < numberOfPresses; i++) {
+          pressCount++
+          // Toggle all lights that this button affects
+          for (const lightIndex of buttons[buttonIndex]) {
+            // lightState = lightState.split('').map((c, i) => i === lightIndex ? (c === '0' ? '1' : '0') : c).join('')
+            joltageState[lightIndex] += 1
+          }
+        }
+        // console.log('lightState', lightState)
+        // console.log('joltageState', joltageState)
+      }
+    }
+    // console.log('lightState', lightState)
+    // console.log('joltageState', joltageState)
+    // if (lightState === target) {
+    //   console.log('pressCount', pressCount)
+    //   console.log('joltageState', joltageState)
+    //   console.log('lightState', lightState)
+    //   console.log('combination', combination)
+    // }
+
+    // Check if this combination achieves the target
+    if (joltageState.join(',') === joltages.join(',')) {
+      // console.log('joltageState', joltageState)
+      // console.log('lightState', lightState)
+      // console.log('combination', combination)
+      minPresses = Math.min(minPresses, pressCount)
+    }
+  }
+
+  return minPresses === Infinity ? null : minPresses
+}
+
+function puzzle(input: string) {
+  const parsedInput = parseInput(input)
+
+  let totalPresses = 0
+
+  for (const machine of parsedInput) {
+    // Convert indicator to target array
+    const target = machine.indicator.replace(/\./g, '0').replace(/#/g, '1')
+    // console.log('target:', target)
+
+    const presses = solveBruteForce(machine.buttons, target, machine.joltages)
+    console.log('presses', presses)
+
+    totalPresses += presses
+  }
+
+  return totalPresses
+}
+
+// Test
+console.log('Test result:', puzzle(`[.##.] (3) (1,3) (2) (2,3) (0,2) (0,1) {3,5,4,7}
+[...#.] (0,2,3,4) (2,3) (0,4) (0,1,2) (1,2,3,4) {7,5,12,7,2}
+[.###.#] (0,1,2,3,4) (0,3,4) (0,1,2,4,5) (1,2) {10,11,11,5,10,5}`))
+
+console.log('Answer:', puzzle(input))
+// console.log(Number('bb'))
